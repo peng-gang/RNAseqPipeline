@@ -14,6 +14,8 @@ if (!require("BiocManager", quietly = TRUE))
 BiocManager::install("enrichplot")
 BiocManager::install("org.Mm.eg.db")
 BiocManager::install("clusterProfiler")
+BiocManager::install("ComplexHeatmap")
+BiocManager::install("ggupset")
 
 library(ggplot2)
 library(ggrepel)
@@ -25,7 +27,7 @@ library(org.Mm.eg.db)
 library(enrichplot)
 library(ggsci)
 library(clusterProfiler)
-
+library(ggupset)
 ```
 
 ##    Functions
@@ -36,13 +38,13 @@ formatDouble <- function(x, digit = 2){
   format(round(x, digit), nsmall = digit)
 }
 
-plotCt <- function(dds, res, idxGene){
+plotCt <- function(dds, res, idxGene,variable,Sample_Name){
   ct <- counts(dds, normalized = TRUE, replaced = FALSE)[idxGene, ]
   gn <- rownames(dds)[idxGene]
   dplot <- data.frame(
-    sample = dds$ID,
+    sample = dds[[Sample_Name]],
     ct = ct,
-    group = dds$group,
+    group = dds[[variable]],
     stringsAsFactors = FALSE
   )
   
@@ -64,7 +66,7 @@ plotCt <- function(dds, res, idxGene){
   gp
 }
 
-plotHeat <- function(vsd, res, geneInfoSel, pvCutoff = 0.05, log2FoldCutoff = 1, scale = TRUE, column_km = 1, cluster_columns = TRUE){
+plotHeat <- function(vsd, res, geneInfoSel, pvCutoff = 0.05, log2FoldCutoff = 1, scale = TRUE, column_km = 1, cluster_columns = TRUE,variable){
   if(sum(rownames(vsd) == rownames(res)) != nrow(vsd)){
     stop("Not Match")
   }
@@ -80,16 +82,16 @@ plotHeat <- function(vsd, res, geneInfoSel, pvCutoff = 0.05, log2FoldCutoff = 1,
   
   rownames(ct) <- gn
   
-  gCol <- pal_nejm("default")(length(unique(vsd$group)))[seq(length(unique(vsd$group)), 1, -1)]
-  if(is.null(levels(vsd$group))){
-    tmp <- factor(vsd$group)
+  gCol <- pal_nejm("default")(length(unique(vsd[[variable]])))[seq(length(unique(vsd[[variable]])), 1, -1)]
+  if(is.null(levels(vsd[[variable]]))){
+    tmp <- factor(vsd[[variable]])
     names(gCol) <- levels(tmp)
   } else {
-    names(gCol) <- levels(vsd$group)
+    names(gCol) <- levels(vsd[[variable]])
   }
   
   ha = HeatmapAnnotation(
-    genotype = vsd$group,
+    genotype = vsd[[variable]],
     col = list(genotype = gCol),
     annotation_legend_param = list(
       #genotype = list(nrow = 1, direction = "horizontal")
@@ -128,16 +130,16 @@ plotHeat <- function(vsd, res, geneInfoSel, pvCutoff = 0.05, log2FoldCutoff = 1,
   ht
 }
 
-volcanoPlot <- function(dplot, pvCutoff = 0.05, log2FoldCutoff = 1){
+volcanoPlot <- function(dplot, pvCutoff = 0.05, log2FoldCutoff = 1,variable){
   tmp <- RColorBrewer::brewer.pal(9,"Set1")
   col <- c(tmp[9], tmp[2], tmp[3], tmp[1])
   names(col) <- c("G0", "G1", "G2", "G3")
   
-  dplot$group <- "G0"
-  dplot$group[abs(dplot$fc) > log2FoldCutoff] <- "G1"
-  dplot$group[dplot$pv > -log10(pvCutoff)] <- "G2"
-  dplot$group[dplot$pv > -log10(pvCutoff) & abs(dplot$fc) > log2FoldCutoff] <- "G3"
-  dplot$group <- factor(dplot$group)
+  dplot[[variable]] <- "G0"
+  dplot[[variable]][abs(dplot$fc) > log2FoldCutoff] <- "G1"
+  dplot[[variable]][dplot$pv > -log10(pvCutoff)] <- "G2"
+  dplot[[variable]][dplot$pv > -log10(pvCutoff) & abs(dplot$fc) > log2FoldCutoff] <- "G3"
+  dplot[[variable]] <- factor(dplot[[variable]])
   
   dText <- dplot[dplot$group=="G3",]
   
@@ -153,7 +155,7 @@ volcanoPlot <- function(dplot, pvCutoff = 0.05, log2FoldCutoff = 1){
   gp
 }
 
-twoGroupCompare <- function(Feature_Counts,Sample_Info, Gene_Info, Variable_Of_Interest, Groups_Selected, Covariates = NULL , Folder_name, pvalue_Cutoff, log2Fold_Cutoff){
+twoGroupCompare <- function(Feature_Counts,Sample_Info, Gene_Info, Variable_Of_Interest, Sample_Name, Groups_Selected, Covariates = NULL , Folder_name, pvalue_Cutoff, log2Fold_Cutoff){
   
   #Check if Sample IDs are in same order in Feature counts and Sample Info files
   SampleIDs<-colnames(Feature_Counts)
@@ -278,7 +280,7 @@ formula<-as.formula(paste("~", Variable_Of_Interest))
   i <- 1
   for(s in sigGN){
     idx <- which(Gene_Info_Selected$ENSEMBL == s)
-    gps[[i]] <- plotCt(dds, res, idx)
+    gps[[i]] <- plotCt(dds, res, idx,Variable_Of_Interest, Sample_Name)
     i <- i + 1
   }
   
@@ -310,7 +312,7 @@ formula<-as.formula(paste("~", Variable_Of_Interest))
   
   dplot <- dplot[!is.na(dplot$gene),]
   
-  gp <- volcanoPlot(dplot, pvCutoff = pvalue_Cutoff, log2FoldCutoff = log2Fold_Cutoff)
+  gp <- volcanoPlot(dplot, pvCutoff = pvalue_Cutoff, log2FoldCutoff = log2Fold_Cutoff,Variable_Of_Interest)
   
   pdf(paste0(Folder_name, "/volcano.pdf"), width = 5, height = 5)
   print(gp)
@@ -329,7 +331,7 @@ formula<-as.formula(paste("~", Variable_Of_Interest))
   
   # heatmap
   flagNA <- is.na(Gene_Info_Selected$ENTREZID)
-  ht <- plotHeat(vsd[!flagNA,], res[!flagNA,], Gene_Info_Selected[!flagNA,], pvCutoff = pvalue_Cutoff, log2FoldCutoff = log2Fold_Cutoff)
+  ht <- plotHeat(vsd[!flagNA,], res[!flagNA,], Gene_Info_Selected[!flagNA,], pvCutoff = pvalue_Cutoff, log2FoldCutoff = log2Fold_Cutoff,variable=Variable_Of_Interest)
   pdf(paste0(Folder_name, "/HeatmapSigGenes.pdf"), width = 6, height = 10)
   ht <- draw(ht, heatmap_legend_side = "bottom", annotation_legend_side = "right")
   invisible(dev.off())
@@ -402,6 +404,6 @@ formula<-as.formula(paste("~", Variable_Of_Interest))
 
 ```{r Main}
 
-twoGroupCompare(Feature_Counts = cts,Sample_Info = sampleInfo,Gene_Info = geneInfo,Variable_Of_Interest = "group",Groups_Selected = c("KO_2","KO_4"),Folder_name = "KO_2VsKO_4", pvalue_Cutoff = 0.05,log2Fold_Cutoff = log2(1.5))
+twoGroupCompare(Feature_Counts = cts,Sample_Info = sampleInfo,Gene_Info = geneInfo,Variable_Of_Interest = "group", Sample_Name='ID', Groups_Selected = c("KO_2","KO_4"),Folder_name = "KO_2VsKO_4", pvalue_Cutoff = 0.05,log2Fold_Cutoff = log2(1.5))
 
 ```
