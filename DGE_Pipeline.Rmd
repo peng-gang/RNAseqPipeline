@@ -38,11 +38,11 @@ formatDouble <- function(x, digit = 2){
   format(round(x, digit), nsmall = digit)
 }
 
-plotCt <- function(dds, res, idxGene,variable,Sample_Name){
+plotCt <- function(dds, res, idxGene,variable,Samples_Column_Name){
   ct <- counts(dds, normalized = TRUE, replaced = FALSE)[idxGene, ]
   gn <- rownames(dds)[idxGene]
   dplot <- data.frame(
-    sample = dds[[Sample_Name]],
+    sample = dds[[Samples_Column_Name]],
     ct = ct,
     group = dds[[variable]],
     stringsAsFactors = FALSE
@@ -155,22 +155,22 @@ volcanoPlot <- function(dplot, pvCutoff = 0.05, log2FoldCutoff = 1,variable){
   gp
 }
 
-twoGroupCompare <- function(Feature_Counts,Sample_Info, Gene_Info, Variable_Of_Interest, Sample_Name, Groups_Selected, Covariates = NULL , Folder_name, pvalue_Cutoff, log2Fold_Cutoff){
+twoGroupCompare <- function(Feature_Counts,Sample_Info, Samples_Column_Name, Gene_Info, Genes_Column_Name, Variable_Of_Interest, Groups_Selected, Covariates = NULL , Folder_name, pvalue_Cutoff, log2Fold_Cutoff){
   
   #Check if Sample IDs are in same order in Feature counts and Sample Info files
   SampleIDs<-colnames(Feature_Counts)
-  SampleIDs_SampleInfo<-Sample_Info$ID
+  SampleIDs_SampleInfo<-Sample_Info[[Samples_Column_Name]]
   if(!identical(SampleIDs,SampleIDs_SampleInfo)){
-    stop("Sample IDs are not in same order in Feature counts and Sample Info files")
+    Feature_Counts<-Feature_Counts[, match(SampleIDs_SampleInfo,colnames(Feature_Counts))]
   }
   
   #Check if Gene IDs are  in same order in Feature counts and Gene Info files
-  genes_geneinfo<-sapply(Gene_Info$Geneid, function(x) sub("\\..*", "", x))
+  genes_geneinfo<-sapply(Gene_Info[[Genes_Column_Name]], function(x) sub("\\..*", "", x))
   genes_geneinfo<-data.frame(genes_geneinfo)
   genes_geneinfo<-genes_geneinfo[, 1]
-  genes<-rownames(cts)
+  genes<-rownames(Feature_Counts)
   if(!identical(genes_geneinfo,genes)){
-    stop("Gene IDs are not in same order in Feature counts and Gene Info files")
+    Feature_Counts<-Feature_Counts[match(genes_geneinfo,rownames(Feature_Counts)), ]
   }
   
   idx <- Sample_Info[[Variable_Of_Interest]] %in% Groups_Selected
@@ -188,13 +188,25 @@ twoGroupCompare <- function(Feature_Counts,Sample_Info, Gene_Info, Variable_Of_I
 
   Sample_Info_Sel[[Variable_Of_Interest]] <- factor(Sample_Info_Sel[[Variable_Of_Interest]], levels = Groups_Selected)
   
-formula<-as.formula(paste("~", Variable_Of_Interest))
+
+  
+
+if(is.null(Covariates)){
+  formula<-as.formula(paste("~ ", Variable_Of_Interest))
+}else{
+  formula<-paste("~ ", Variable_Of_Interest)
+  for (i in 1:length(Covariates)){
+    formula<-paste(formula," + ", Covariates[i])
+  }
+  formula<-as.formula(formula)
+}
+  
   
   dds <- DESeqDataSetFromMatrix(
     countData = Feature_Counts_Selected,
     colData = Sample_Info_Sel,
     design= formula)
-  
+
   dds <- DESeq(dds)
   
   Groups_Selected[2]
@@ -280,7 +292,7 @@ formula<-as.formula(paste("~", Variable_Of_Interest))
   i <- 1
   for(s in sigGN){
     idx <- which(Gene_Info_Selected$ENSEMBL == s)
-    gps[[i]] <- plotCt(dds, res, idx,Variable_Of_Interest, Sample_Name)
+    gps[[i]] <- plotCt(dds, res, idx,Variable_Of_Interest, Samples_Column_Name)
     i <- i + 1
   }
   
@@ -404,6 +416,6 @@ formula<-as.formula(paste("~", Variable_Of_Interest))
 
 ```{r Main}
 
-twoGroupCompare(Feature_Counts = cts,Sample_Info = sampleInfo,Gene_Info = geneInfo,Variable_Of_Interest = "group", Sample_Name='ID', Groups_Selected = c("KO_2","KO_4"),Folder_name = "KO_2VsKO_4", pvalue_Cutoff = 0.05,log2Fold_Cutoff = log2(1.5))
+twoGroupCompare(Feature_Counts = cts,Sample_Info = sampleInfo, Samples_Column_Name = "ID", Gene_Info = geneInfo, Genes_Column_Name = "Geneid", Variable_Of_Interest = "group", Groups_Selected = c("KO_2","KO_4"),Folder_name = "KO_2VsKO_4", pvalue_Cutoff = 0.05,log2Fold_Cutoff = log2(1.5))
 
 ```
