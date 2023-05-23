@@ -141,10 +141,10 @@ volcanoPlot <- function(dplot, pvCutoff = 0.05, log2FoldCutoff = 1,variable){
   dplot[[variable]][dplot$pv > -log10(pvCutoff) & abs(dplot$fc) > log2FoldCutoff] <- "G3"
   dplot[[variable]] <- factor(dplot[[variable]])
   
-  dText <- dplot[dplot$group=="G3",]
+  dText <- dplot[dplot[[variable]]=="G3",]
   
   gp <- ggplot(dplot) +
-    geom_point(aes(x=fc, y=pv, color = group), size = 0.8) + 
+    geom_point(aes(x=fc, y=pv, color = variable), size = 0.8) + 
     geom_text_repel(data = dText, aes(x=fc, y=pv, label = gene), color = col[4], size = 2.5) + 
     labs(x= "Log<sub>2</sub> fold change", y = "-Log<sub>10</sub> <i> P</i>") + 
     scale_color_manual(values = col, labels = c("NS", expression("Log"[2]*" FC"), 'p-value', 
@@ -168,7 +168,9 @@ twoGroupCompare <- function(Feature_Counts,Sample_Info, Samples_Column_Name, Gen
   genes_geneinfo<-sapply(Gene_Info[[Genes_Column_Name]], function(x) sub("\\..*", "", x))
   genes_geneinfo<-data.frame(genes_geneinfo)
   genes_geneinfo<-genes_geneinfo[, 1]
-  genes<-rownames(Feature_Counts)
+  genes<-sapply(rownames(Feature_Counts), function(x) sub("\\..*", "", x))
+  genes<-data.frame(genes)
+  genes<-genes[, 1]
   if(!identical(genes_geneinfo,genes)){
     Feature_Counts<-Feature_Counts[match(genes_geneinfo,rownames(Feature_Counts)), ]
   }
@@ -181,7 +183,7 @@ twoGroupCompare <- function(Feature_Counts,Sample_Info, Samples_Column_Name, Gen
   Gene_Info_Selected <- Gene_Info[idx,]
   Feature_Counts_Selected <- Feature_Counts_Selected[idx,]
   
-  if(sum(Gene_Info_Selected$ENSEMBL == rownames(Feature_Counts_Selected)) != nrow(Feature_Counts_Selected)){
+  if(sum(Gene_Info_Selected[[Genes_Column_Name]] == rownames(Feature_Counts_Selected), na.rm = TRUE) != nrow(Feature_Counts_Selected)){
     stop("Not Match")
   }
   
@@ -209,16 +211,12 @@ if(is.null(Covariates)){
 
   dds <- DESeq(dds)
   
-  Groups_Selected[2]
-  
   #resultsNames(dds) # lists the coefficients
   res <- results(dds, name= paste0(Variable_Of_Interest,"_", Groups_Selected[2], "_vs_", Groups_Selected[1]), alpha = 0.1)
   
   resOrdered <- res[order(res$pvalue),]
   
   resOrdered <- resOrdered[complete.cases(resOrdered$padj), ]
-  
-  resOrdered
   
   
   # results
@@ -291,7 +289,7 @@ if(is.null(Covariates)){
   gps <- list()
   i <- 1
   for(s in sigGN){
-    idx <- which(Gene_Info_Selected$ENSEMBL == s)
+    idx <- which(Gene_Info_Selected[[Genes_Column_Name]] == s)
     gps[[i]] <- plotCt(dds, res, idx,Variable_Of_Interest, Samples_Column_Name)
     i <- i + 1
   }
@@ -304,8 +302,8 @@ if(is.null(Covariates)){
   
   # output results
   tmp <- as.data.frame(resOrdered)
-  idx <- match(rownames(tmp), Gene_Info_Selected$ENSEMBL)
-  if(sum( Gene_Info_Selected$ENSEMBL[idx] == rownames(tmp)) != nrow(tmp)){
+  idx <- match(rownames(tmp), Gene_Info_Selected[[Genes_Column_Name]])
+  if(sum( Gene_Info_Selected[[Genes_Column_Name]][idx] == rownames(tmp)) != nrow(tmp)){
     stop("Not Match")
   }
   
@@ -333,8 +331,8 @@ if(is.null(Covariates)){
   
   
   sigRlt <- as.data.frame(resOrdered[which(resOrdered$pvalue < pvalue_Cutoff & abs(resOrdered$log2FoldChange) > log2Fold_Cutoff),])
-  idx <- match(rownames(sigRlt), Gene_Info_Selected$ENSEMBL)
-  if(sum(Gene_Info_Selected$ENSEMBL[idx] == rownames(sigRlt)) != nrow(sigRlt)){
+  idx <- match(rownames(sigRlt), Gene_Info_Selected[[Genes_Column_Name]])
+  if(sum(Gene_Info_Selected[[Genes_Column_Name]][idx] == rownames(sigRlt)) != nrow(sigRlt)){
     stop("Not Match")
   }
   sigRlt <- cbind(Gene_Info_Selected[idx,], sigRlt)
@@ -416,6 +414,8 @@ if(is.null(Covariates)){
 
 ```{r Main}
 
-twoGroupCompare(Feature_Counts = cts,Sample_Info = sampleInfo, Samples_Column_Name = "ID", Gene_Info = geneInfo, Genes_Column_Name = "Geneid", Variable_Of_Interest = "group", Groups_Selected = c("KO_2","KO_4"),Folder_name = "KO_2VsKO_4", pvalue_Cutoff = 0.05,log2Fold_Cutoff = log2(1.5))
+twoGroupCompare(Feature_Counts = cts,Sample_Info = sampleInfo, Samples_Column_Name = "id", Gene_Info = geneInfo, Genes_Column_Name = "SYMBOL", Variable_Of_Interest = "treatment", Groups_Selected = c("Control","CalciumDeficient"), Covariates = c("genotype","sex"), Folder_name = "ControlVsCalciumDeficient", pvalue_Cutoff = 0.05,log2Fold_Cutoff = log2(1.5))
+
+twoGroupCompare(Feature_Counts = cts,Sample_Info = sampleInfo, Samples_Column_Name = "ID", Gene_Info = geneInfo, Genes_Column_Name = "ENSEMBL", Variable_Of_Interest = "group", Groups_Selected = c("KO_2","KO_4"), Folder_name = "KO_2VsKO_4", pvalue_Cutoff = 0.05,log2Fold_Cutoff = log2(1.5))
 
 ```
