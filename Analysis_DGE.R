@@ -120,8 +120,10 @@ volcanoPlot <- function(dplot, pvCutoff = 0.05, log2FoldCutoff = 1,variable){
   gp
 }
 
-twoGroupCompare <- function(Feature_Counts,Sample_Info, Samples_Column_Name, Gene_Info, Genes_Column_Name, Variable_Of_Interest, Groups_Selected, Covariates = NULL , Folder_name, pvalue_Cutoff, log2Fold_Cutoff){
+twoGroupCompare <- function(Feature_Counts,Sample_Info, Samples_Column_Name, Gene_Info, Genes_Column_Name, Variable_Of_Interest, Groups_Selected, Covariates = NULL , Folder_name, pvalue_Cutoff, log2Fold_Cutoff, Extra_Filters = NULL){
   
+  
+
   #Check if Sample IDs are in same order in Feature counts and Sample Info files
   SampleIDs<-colnames(Feature_Counts)
   SampleIDs_SampleInfo<-Sample_Info[[Samples_Column_Name]]
@@ -138,6 +140,22 @@ twoGroupCompare <- function(Feature_Counts,Sample_Info, Samples_Column_Name, Gen
   genes<-genes[, 1]
   if(!identical(genes_geneinfo,genes)){
     Feature_Counts<-Feature_Counts[match(genes_geneinfo,rownames(Feature_Counts)), ]
+  }
+  
+  if(!is.null(Extra_Filters)){
+    filter_columns <- unlist(strsplit(Extra_Filters,";"))
+    for (i in 1:length(filter_columns)){
+      filter_column <- unlist(strsplit(filter_columns[i],":"))[1]
+      selected_rows <- unlist(strsplit(filter_columns[i],":"))[2]
+      selected_rows <- unlist(strsplit(selected_rows,","))
+      for (j in 1:length(selected_rows)){
+        Sample_Info <- Sample_Info[Sample_Info[[filter_column]] == selected_rows[j], ]
+      }
+    }
+    
+    sample_columns <- Sample_Info[[Samples_Column_Name]]
+    Feature_Counts <- Feature_Counts[, intersect(sample_columns, colnames(Feature_Counts))]
+    
   }
   
   idx <- Sample_Info[[Variable_Of_Interest]] %in% Groups_Selected
@@ -167,7 +185,6 @@ twoGroupCompare <- function(Feature_Counts,Sample_Info, Samples_Column_Name, Gen
     }
     formula<-as.formula(formula)
   }
-  
   
   dds <- DESeqDataSetFromMatrix(
     countData = Feature_Counts_Selected,
@@ -386,7 +403,9 @@ twoGroupCompare <- function(Feature_Counts,Sample_Info, Samples_Column_Name, Gen
       "",
       paste0("pvalue cutoff: ", pvalue_Cutoff),
       "",
-      paste0("log2fold cutoff: ", log2Fold_Cutoff)
+      paste0("log2fold cutoff: ", log2Fold_Cutoff),
+      "",
+      paste0("Extra Filters: ", Extra_Filters)
     )
     
     writeLines(readme_content, readme_path)
