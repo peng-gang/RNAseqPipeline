@@ -1,25 +1,23 @@
 
 Normalize_Counts <- function(cts,sampleInfo,Variable_Of_Interest,Groups_Selected,Folder_Name){
-  ctsSel <- cts
-  Sample_Info <- sampleInfo
   
-  idx <- Sample_Info[[Variable_Of_Interest]] %in% Groups_Selected
-  sampleInfoSel <- Sample_Info[idx,]
+  idx <- sampleInfo[[Variable_Of_Interest]] %in% Groups_Selected
+  sampleInfoSel <- sampleInfo[idx,]
   
   sampleInfoSel[[Variable_Of_Interest]] <- factor(sampleInfoSel[[Variable_Of_Interest]], levels = Groups_Selected)
   
   sampleInfoSel[[Variable_Of_Interest]]
   
-  flag <- rowSums(ctsSel == 0) < ncol(ctsSel)
-  ctsSel <- ctsSel[flag,]
-  ctsSel <- ctsSel[, idx]
+  flag <- rowSums(cts == 0) < ncol(cts)
+  cts <- cts[flag,]
+  cts <- cts[, idx]
   
   
   formula<-as.formula(paste("~  ", Variable_Of_Interest))
   
   
   dds <- DESeqDataSetFromMatrix(
-    countData = ctsSel,
+    countData = cts,
     colData = sampleInfoSel,
     design = formula)
   
@@ -78,9 +76,8 @@ Distance_Clustering <- function(dds,Groups_Selected,Variable_Of_Interest,Folder_
 
 PCA_Plots <- function(dds, Variable_Of_Interest, Samples_Column_name, sampleInfo , Groups_Selected, Variables_For_PCA,Folder_Name,Color_Choice=NULL, Shape_Choice = NULL){
   
-  Sample_Info <- sampleInfo
-  idx <- Sample_Info[[Variable_Of_Interest]] %in% Groups_Selected
-  sampleInfoSel <- Sample_Info[idx,]
+  idx <- sampleInfo[[Variable_Of_Interest]] %in% Groups_Selected
+  sampleInfoSel <- sampleInfo[idx,]
   vsd <- vst(dds, blind=TRUE)
   pcaData <- plotPCA(vsd, intgroup=Variable_Of_Interest, returnData=TRUE)
   if(sum(pcaData$name == sampleInfoSel[[Samples_Column_name]]) != nrow(sampleInfoSel)){
@@ -141,17 +138,16 @@ PCA_Plots <- function(dds, Variable_Of_Interest, Samples_Column_name, sampleInfo
   
 }
 
-Y_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name){
+Y_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name, Chromosome_CN, gender_column_name, Samples_column_name){
   
   numTotalReads <- colSums(cts)
-  flagChrY <- stringr::str_detect(geneInfo$Chr, "chrY")
+  flagChrY <- stringr::str_detect(geneInfo[[Chromosome_CN]], "chrY")
   ctsY <- cts[flagChrY,]
   dplot <- data.frame(
     ct = colSums(ctsY),
     ctPercent =  colSums(ctsY)/numTotalReads,
-    sex = sampleInfo$sex,
-    treatment = sampleInfo$treatment,
-    id = sampleInfo$id,
+    sex = sampleInfo[[gender_column_name]],
+    id = sampleInfo[[Samples_column_name]],
     stringsAsFactors = FALSE
   )
   
@@ -184,17 +180,16 @@ Y_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name){
   invisible(dev.off())
 }
 
-X_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name){
+X_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name, Chromosome_CN, gender_column_name, Samples_column_name){
   
   numTotalReads <- colSums(cts)
-  flagChrX <- stringr::str_detect(geneInfo$Chr, "chrX")
+  flagChrX <- stringr::str_detect(geneInfo[[Chromosome_CN]], "chrX")
   ctsX <- cts[flagChrX,]
   dplot <- data.frame(
     ct = colSums(ctsX),
     ctPercent =  colSums(ctsX)/numTotalReads,
-    sex = sampleInfo$sex,
-    treatment = sampleInfo$treatment,
-    id = sampleInfo$id,
+    sex = sampleInfo[[gender_column_name]],
+    id = sampleInfo[[Samples_column_name]],
     stringsAsFactors = FALSE
   )
   
@@ -228,14 +223,14 @@ X_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name){
   
 }
 
-XIST_Counts <- function(cts,geneInfo,genes_column_name,sampleInfo,Folder_Name){
+XIST_Counts <- function(cts,geneInfo,genes_column_name,sampleInfo,Folder_Name,gender_column_name,Samples_column_name){
   
   numTotalReads <- colSums(cts)
   dplot <- data.frame(
-    Xist = cts[which(geneInfo[[genes_column_name]] == "Xist"),],
-    XistNorm =  cts[which(geneInfo[[genes_column_name]] == "Xist"),]/numTotalReads,
-    sex = sampleInfo$sex,
-    id = sampleInfo$id
+    Xist = cts[which(toupper(geneInfo[[genes_column_name]]) == toupper("Xist")),],
+    XistNorm =  cts[which(toupper(geneInfo[[genes_column_name]]) == toupper("Xist")),]/numTotalReads,
+    sex = sampleInfo[[gender_column_name]],
+    id = sampleInfo[[Samples_column_name]]
   )
   
   pos <- position_jitter(width = 0.2, height = 0, seed = 2)
