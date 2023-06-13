@@ -1,4 +1,7 @@
 
+#function Normalize_Counts
+#Arguments: cts, sampleInfo, Variable_Of_Interest, Groups_Selected, Folder_Name
+#Normalizes the counts for all genes and generates a csv file with normalized counts data
 Normalize_Counts <- function(cts,sampleInfo,Variable_Of_Interest,Groups_Selected,Folder_Name){
   
   idx <- sampleInfo[[Variable_Of_Interest]] %in% Groups_Selected
@@ -31,6 +34,10 @@ Normalize_Counts <- function(cts,sampleInfo,Variable_Of_Interest,Groups_Selected
   return(dds)
 }
 
+
+#funcrion Distance_Clustering
+#Arguments: dds, Groups_Selected, Variable_Of_Interest, Folder_Name
+#Generates the Sample distance heatmap
 Distance_Clustering <- function(dds,Groups_Selected,Variable_Of_Interest,Folder_Name){
   vsd <- vst(dds, blind=TRUE)
   sampleDist <- dist(t(assay(vsd)))
@@ -74,6 +81,10 @@ Distance_Clustering <- function(dds,Groups_Selected,Variable_Of_Interest,Folder_
   invisible(dev.off())
 }
 
+
+#function PCA_Plots
+#Arguments: dds, Variable_Of_Interest, Samples_Column_name, sampleInfo, Groups_Selected, Variables_For_PCA, Folder_Name, Color_Choice and Shape_Choice
+#Performs the principle component analysis and generates the plots
 PCA_Plots <- function(dds, Variable_Of_Interest, Samples_Column_name, sampleInfo , Groups_Selected, Variables_For_PCA,Folder_Name,Color_Choice=NULL, Shape_Choice = NULL){
   
   idx <- sampleInfo[[Variable_Of_Interest]] %in% Groups_Selected
@@ -138,6 +149,9 @@ PCA_Plots <- function(dds, Variable_Of_Interest, Samples_Column_name, sampleInfo
   
 }
 
+#function Y_Reads
+#Arguments: cts, geneInfo, sampleInfo, Folder_Name, Chromosome_CN, gender_column_name, Samples_column_name
+#plots the total reads and proportion reads on chromosome Y for all the samples
 Y_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name, Chromosome_CN, gender_column_name, Samples_column_name){
   
   numTotalReads <- colSums(cts)
@@ -180,6 +194,10 @@ Y_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name, Chromosome_CN, gender_c
   invisible(dev.off())
 }
 
+
+#function X_Reads
+#Arguments: cts, geneInfo, sampleInfo, Folder_Name, Chromosome_CN, gender_column_name, Samples_column_name
+#plots the total reads and proportion reads on chromosome X for all the samples
 X_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name, Chromosome_CN, gender_column_name, Samples_column_name){
   
   numTotalReads <- colSums(cts)
@@ -223,6 +241,10 @@ X_Reads <- function(cts,geneInfo,sampleInfo,Folder_Name, Chromosome_CN, gender_c
   
 }
 
+
+#function XIST_Counts
+#Arguments: cts, geneInfo, genes_column_name, sampleInfo, Folder_Name, gender_column_name, Samples_column_name
+#plots the total reads and proportion reads of XIST gene for all the samples
 XIST_Counts <- function(cts,geneInfo,genes_column_name,sampleInfo,Folder_Name,gender_column_name,Samples_column_name){
   
   numTotalReads <- colSums(cts)
